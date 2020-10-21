@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import * as Lib from '../lib';
+import * as Lib from '../schema';
 import 'mocha';
 
 describe("Hello, world!", () => {
