@@ -26,9 +26,9 @@ export class Message<T> {
     }
 
     public then<U>(
-            fn: (t: T) => Message<U>,
-            inv: (u: U) => T
-        ): Message<U> {
+        fn: (t: T) => Message<U>,
+        inv: (u: U) => T
+    ): Message<U> {
         return new Message(
             r => {
                 const rt = this.read(r);
@@ -45,7 +45,10 @@ export class Message<T> {
         );
     }
 
-    public ensure(predicate: (t: T) => boolean, errorMessage: (t: T) => string): Message<T>{
+    public ensure(
+        predicate: (t: T) => boolean,
+        errorMessage: (t: T) => string = (t: T) => `Invariant broken by ${t}`
+    ): Message<T>{
         return new Message(
             r => {
                 const rt = this.read(r);
