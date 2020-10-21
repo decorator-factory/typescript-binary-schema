@@ -37,7 +37,11 @@ export class Message<T> {
                 else
                     return fn(x.unwrap()).read(r);
             },
-            u => this.write(inv(u)),
+            u => w => {
+                const t = inv(u);
+                this.write(t)(w);
+                fn(t).write(u)(w);
+            },
         );
     }
 }
