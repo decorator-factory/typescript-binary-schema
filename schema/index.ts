@@ -134,7 +134,7 @@ export const PascalString = (n: number): Message<string> =>
                     Pure(new TextDecoder().decode(byteArray)),
                 s => new TextEncoder().encode(s),
             ),
-        s => s.length,
+        s => new TextEncoder().encode(s).length,
     );
 
 
