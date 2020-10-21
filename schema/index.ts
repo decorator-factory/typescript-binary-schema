@@ -68,12 +68,13 @@ export const UnsignedInt = (bytes: number) =>
     new Message<number> (
         r => {
             let result = 0;
+            let k = 1;
             for (let i = 0; i < bytes; i++){
-                result *= 256;
                 const byte = r().toNullable();
                 if (byte === null)
                     return Err(`Message ended prematurely: UnsignedInt(${bytes})`);
-                result += byte;
+                result += byte * k;
+                k *= 2;
             }
             return Ok(result);
         },
@@ -89,12 +90,13 @@ export const UnsignedBigInt = (bytes: number) =>
     new Message<bigint> (
         r => {
             let result = 0n;
+            let k = 1n;
             for (let i = 0; i < bytes; i++){
-                result *= 256n;
                 const byte = r().toNullable();
                 if (byte === null)
                     return Err(`Message ended prematurely: UnsignedBigInt(${bytes})`);
-                result += BigInt(byte);
+                result += BigInt(byte) * k;
+                k *= 2n;
             }
             return Ok(result);
         },
