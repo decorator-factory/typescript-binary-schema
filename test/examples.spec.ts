@@ -99,7 +99,7 @@ describe("Record messages", () => {
             y: Lib.U16,
             name: Lib.PascalString(1)
         });
-        // Player has type: Message<{x: number, y: number, name: string}>;
+        <Lib.Message<{x: number, y: number, name: string}>> Player;
 
         const buffer: Array<number> = [];
         const push = (byte: number) => buffer.push(byte);
@@ -114,5 +114,53 @@ describe("Record messages", () => {
         expect(Player.read(stream).unwrap())
         .to.deep.equal({x: 42, y: 150, name: "admin"});
 
+    })
+});
+
+
+describe("Predicate checks", () => {
+    it("can be used to ensure that some invariant is maintaned", () => {
+        const LessThan100 = Lib.U8.ensure(n => n < 100);
+
+        expect(LessThan100.read(() => Some(35)).unwrap()).to.equal(35);
+        expect(LessThan100.read(() => Some(103)).unwrapErr()).to.equal("Invariant broken by 103");
+    });
+
+    it("can have a custom error message", () => {
+        const LessThan100 =
+            Lib.U8.ensure(
+                n => n < 100,
+                n => `${n} is too large!!1`
+            );
+        expect(LessThan100.read(() => Some(103)).unwrapErr()).to.equal("103 is too large!!1");
+    });
+
+    it("works on any message type", () => {
+        // It's not possible that more seats are reserved than available
+        const CafeState = Lib.RecordMessage("CafeState", {
+            totalSeats: Lib.U8,
+            reservedSeats: Lib.U8,
+        }).ensure(({totalSeats, reservedSeats}) => totalSeats >= reservedSeats);
+
+        const stream = Lib.arrayByteStream(new Uint8Array([100, 200]));
+        expect(CafeState.read(stream).isErr()).to.equal(true);
+    });
+
+    it("works with nested messages", () => {
+        const LessThan100 = Lib.U8.ensure(n => n < 100);
+
+        const CafeState = Lib.RecordMessage("CafeState", {
+            totalSeats: LessThan100,
+            reservedSeats: LessThan100,
+        }).ensure(({totalSeats, reservedSeats}) => totalSeats >= reservedSeats);
+
+        const stream1 = Lib.arrayByteStream(new Uint8Array([5, 10]));
+        expect(CafeState.read(stream1).isErr()).to.equal(true);
+
+        const stream2 = Lib.arrayByteStream(new Uint8Array([4, 3]));
+        expect(CafeState.read(stream2).isErr()).to.equal(false);
+
+        const stream3 = Lib.arrayByteStream(new Uint8Array([400, 300]));
+        expect(CafeState.read(stream3).isErr()).to.equal(true);
     })
 });
