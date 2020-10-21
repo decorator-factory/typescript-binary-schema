@@ -1,7 +1,9 @@
 import { expect } from 'chai';
+import { Ok, Err, Result } from '../schema/result';
 import { Some, None, Option } from '../schema/option';
 import * as Lib from '../schema';
 import 'mocha';
+
 
 describe("ByteStream", () => {
     it("can be created from a Uint8Array", () => {
@@ -30,4 +32,87 @@ describe("ByteStream", () => {
         expect(bs().toNullable()).to.equal(3);
         expect(bs().toNullable()).to.equal(null);
     });
+});
+
+
+describe("Message schema", () => {
+    it("can read data from a ByteStream", () => {
+        // a schema is represented by the Message<T> class
+        const schema: Lib.Message<number> = Lib.U8; // unsigned 8-bit integer
+
+        const stream = Lib.arrayByteStream(new Uint8Array([42, 57]));
+
+        // Message<T>.read() returns Result<T, string> --
+        // a type for either a T or an error message (as a string)
+        const result1: Result<number, string> = Lib.U8.read(stream);
+        const result2: Result<number, string> = Lib.U8.read(stream);
+        const result3: Result<number, string> = Lib.U8.read(stream);
+
+        expect(result1.isOk()).to.equal(true);
+        expect(result2.isOk()).to.equal(true);
+        expect(result3.isOk()).to.equal(false);
+        expect(result3.isErr()).to.equal(true);
+
+        expect(result1.unwrap()).to.equal(42);
+        expect(result2.unwrap()).to.equal(57);
+        expect(result3.unwrapErr()).to.include("Message ended prematurely");
+    });
+
+    it("can write data into a stream", () => {
+        const store: Array<number> = [];
+        const push = (byte: number) => store.push(byte);
+
+        Lib.U16.write(42)(push);
+        Lib.U16.write(257)(push);
+
+        expect(store).to.deep.equal([42, 0, 1, 1]);
+    });
+});
+
+
+describe("Length-encoded strings", () => {
+    it("can be used to read and write a string of given length", () => {
+        // the `2` is for how many bytes the string length itself occupies
+        // (in this case a string can be from 0 to 65535 bytes long)
+        const schema = Lib.PascalString(2);
+
+        const buffer: Array<number> = [];
+        const push = (byte: number) => buffer.push(byte);
+
+        schema.write("hello")(push);
+        expect(buffer).to.deep.equal([5, 0, 104, 101, 108, 108, 111]);
+        // (5, 0) is the length (0x0005 in little endian)
+        // the rest is the bytes in a string.
+
+
+        const stream = Lib.arrayByteStream(new Uint8Array([5, 0, 104, 101, 108, 108, 111]));
+        expect(schema.read(stream).unwrap()).to.equal("hello");
+    });
+});
+
+
+describe("Record messages", () => {
+    // Record messages is probably the feature that you will use the most
+    it("can be used to read and write heterogenous data structures", () => {
+        const Player = Lib.RecordMessage("Player", {
+            x: Lib.U16,
+            y: Lib.U16,
+            name: Lib.PascalString(1)
+        });
+        // Player has type: Message<{x: number, y: number, name: string}>;
+
+        const buffer: Array<number> = [];
+        const push = (byte: number) => buffer.push(byte);
+
+        Player.write({x: 42, y: 150, name: "admin"})(push);
+        expect(buffer).to.deep.equal([42, 0, 150, 0, 5, 97, 100, 109, 105, 110]);
+        // x: 42 0
+        // y: 150 0
+        // name: (length=5) 97 100 109 105 110
+
+        const stream = Lib.arrayByteStream(new Uint8Array([42, 0, 150, 0, 5, 97, 100, 109, 105, 110]));
+        expect(Player.read(stream).unwrap())
+        .to.deep.equal({x: 42, y: 150, name: "admin"});
+
+    })
 });
