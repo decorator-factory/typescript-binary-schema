@@ -31,17 +31,36 @@ export class Message<T> {
         ): Message<U> {
         return new Message(
             r => {
-                const x = this.read(r);
-                if (x.isErr())
-                    return Err(x.unwrapErr());
+                const rt = this.read(r);
+                if (rt.isErr())
+                    return Err(rt.unwrapErr());
                 else
-                    return fn(x.unwrap()).read(r);
+                    return fn(rt.unwrap()).read(r);
             },
             u => w => {
                 const t = inv(u);
                 this.write(t)(w);
                 fn(t).write(u)(w);
             },
+        );
+    }
+
+    public ensure(predicate: (t: T) => boolean, errorMessage: (t: T) => string): Message<T>{
+        return new Message(
+            r => {
+                const rt = this.read(r);
+                if (rt.isErr())
+                    return rt;
+                const t = rt.unwrap();
+                if (!predicate(t))
+                    return Err(errorMessage(t));
+                return Ok(t);
+            },
+            t => {
+                if (!predicate(t))
+                    throw new Error(errorMessage(t));
+                return this.write(t);
+            }
         );
     }
 }
